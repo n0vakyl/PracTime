@@ -1,0 +1,181 @@
+---
+output:
+  pdf_document: 
+    fig_caption: true
+    number_sections: true
+  html_document: 
+    code_download: true
+    toc: true
+    theme: united
+header-includes:
+   - \usepackage{parskip}
+   - \usepackage{amsmath, amssymb}
+   - \usepackage{cancel}
+   - \usepackage{fancyhdr}
+   - \usepackage{lipsum}
+   - \pagestyle{fancy}
+   - \fancyhead[CO,CE]{}
+   - \fancyfoot[CO,CE]{}
+   - \fancyfoot[LE,RO]{\thepage} 
+---
+
+```{=tex}
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    
+    {\Huge \bfseries Bayes Analysis Assignment 2025\par}
+    \vspace{1.5cm}
+    
+    {\Large \textit{by}\par}
+    \vspace{0.5cm}
+    
+    {\Large Myeni L (MYNLUN004), Mthetho K (MTHKWE006)\par}
+    \vspace{1.5cm}
+    
+    \includegraphics[width=4cm]{"uct_logo.png"}\par
+    \vspace{1cm}
+    
+    \includegraphics[width=4cm]{"stats_sciences_logo.png"}\par
+    \vspace{1.5cm}
+    
+    {\large \today\par}
+    
+    \vfill
+\end{titlepage}
+```
+
+\newpage
+```{=tex}
+\begin{center}\subsection*{Plaigarism declaration}\end{center}
+
+
+Our group, \textbf{Lungani Myeni, Kwetsi Mthetho} Hereby declare
+that the work presented in this assignment for the course Experimental Design is entirely our own. We confirm that:
+\begin{enumerate}
+    \item We recognise that plaigarism is a serious form of academic dishonesty.
+    \item Our work has not been previously submitted in whole or in part, for any other course or assessment.
+    \item We have acknowledged and referenced all the sources of information used in this assignment.
+    \item We have abided by all ethical guidelines for academic integrity as outlined by the university.
+\end{enumerate}
+
+\begin{center}
+
+\vspace{1em}    
+\includegraphics[width=4cm]{"lungani_sig.png"}\par
+\vspace{-2.5em}
+Myeni L.
+
+\includegraphics[width=4cm]{"kwetsi_sig.png"}\par
+\vspace{-3em}
+Mthetho K.
+\vspace{0.8cm}
+
+\vfill
+\end{center}
+```
+
+
+\newpage
+\tableofcontents 
+```{=tex}
+\listoffigures
+\listoftables
+```
+
+\newpage
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Data Extraction}
+rm (list=ls())
+
+#loading the assignment data
+load ("STA3043_Assignment1_2025.RData")
+
+# retrieval of student observations
+kwe_obs = Class.List$MTHKWE006
+lun_obs = Class.List$MYNLUN004
+x = kwe_obs
+```
+
+
+```{r Posterior Calc&Plot}
+
+# exponent of function for posterior
+expo_postv = function(theta, dataobs){
+  # getting the differences of points and isolating a vector for both change in
+  # x and change in y
+  diff_obs = diff (dataobs)
+  dx = diff_obs [,2]
+  dy = diff_obs [,3]
+  
+  # need lagged difference of points 
+  dx_LAG = c(0, head(dx, -1))
+  dy_LAG = c(0, head(dy, -1))
+  
+  # calculating the constant terms
+  s1 = sum (dx*dx_LAG + dy*dy_LAG)
+  s2 = sum (dx*dy_LAG + dy*dx_LAG)  
+    
+  # combining them with trig functions  
+  x1 = s1*sin(theta) + s2*cos(theta)
+  -0.5*x1  
+}
+
+# vectorise function above to CORRECTLY handle the theta vector
+vec_expo_postv = Vectorize (FUN = expo_postv, vectorize.args = "theta")
+
+# theta's range
+theta_range = seq (from = -pi, to = pi, length = 1000)
+
+# plotting log posterior
+plot(theta_range, vec_expo_postv (theta_range, x), type = "l", 
+     xlab = expression (theta), ylab = "Log 'Posterior'", col = "red")
+
+#plotting unnormalised posterior
+plot(theta_range, exp(vec_expo_postv (theta_range, x)), type = "l", 
+     xlab = expression(theta), ylab = "Unnormalised 'Posterior'")
+
+#plotting posterior
+vpost_vals = exp(vec_expo_postv (theta_range, x))
+vpost = vpost_vals / sum (vpost_vals)
+plot(theta_range, vpost, type = "l", 
+     xlab = expression(theta), ylab = "Normalised 'Posterior'", col = "royalblue")
+
+```
+
+
+
+```{r Maximum for GammaFunction Calc}
+# function to maximise
+f = function (theta, dataobs){
+  # the previous work:
+  diff_obs = diff (dataobs)
+  dx = diff_obs [,2]
+  dy = diff_obs [,3]
+  dx_LAG = c(0, head(dx, -1))
+  dy_LAG = c(0, head(dy, -1))
+  s1 = sum (dx*dx_LAG + dy*dy_LAG)
+  s2 = sum (dx*dy_LAG + dy*dx_LAG)  
+  x1 = s1*sin(theta) + s2*cos(theta)
+  x2 = cos(theta)
+  -0.5*x1 -3*x2
+}
+
+opt = optimise( (1/(2*pi)) * (exp( f(theta_range,x) )), interval = c(-pi,pi), dataobs = x)
+
+opt
+
+```
+
+
+\newpage
+
+# Appendix
+
+## Source Code
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff = 60)}
+```
