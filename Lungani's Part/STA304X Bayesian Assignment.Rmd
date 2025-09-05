@@ -1,0 +1,300 @@
+---
+title: "Assignment (Lungani Style)"
+author: "Lungani Myeni"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(123)
+
+```
+
+We will start by loading the data and plotting the path our animal follows.
+```{r Loading Data}
+load("STA3043_Assignment1_2025.RData")
+# Circular Library for the rvonmises function
+library(circular)
+
+
+
+#inputting Student Number
+stu_num = "MYNLUN004"
+number = which(names(Class.List)==stu_num)
+
+
+x = Class.List[[number]][,2]
+
+y = Class.List[[number]][,3]
+
+# Plot of the animal's path
+plot(x,y,col="red",type="l", main="Animal Path")
+
+
+```
+\section{Question 1}
+
+\usepackage{parskip}
+
+
+\newcommand{\M}{\mathbf{M}}
+\newcommand{\sumn}{\sum_{t=1}^{n}}
+\newcommand{\haf}{\frac{1}{2}}
+
+
+\newcommand{\del}[1]{\Delta{#1}}
+\newcommand{\vect}[2]{\begin{pmatrix}{#1}\\{#2}\\\end{pmatrix}}
+\newcommand{\bmu}{\boldsymbol{\mu}}
+\newcommand{\cost}{\cos\theta}
+\newcommand{\sint}{\sin\theta}
+
+
+
+
+
+First, we shall obtain the likelihood. We see the velocity vectors $v_t$ are normally distributed with some unknown parameters. The likelihood expression for $n = 250$ and $a = \haf$ is therefore:
+
+
+\begin{eqnarray*}
+    L(V,\theta) &\propto& \exp\left( -\frac{1}{2}\sum_{t=1}^{n} \left( v_t - a\M v_{t-1}\right)^T\left( v_t - a\M v_{t-1} \right) \right)\\
+    &\propto& \exp{\left( -\haf\sumn  v_t^Tv_t - 2av_{t}^T\M v_{t-1} + a^2v_{t-1}^T{\M}^T{\M}v_{t-1}\right)}\\
+\end{eqnarray*}
+
+To simplify calculations, we note that 
+
+\[
+{\M}^T{\M} = 
+\begin{pmatrix}
+    \cost&-\sint\\
+    \sint&\cost\\
+\end{pmatrix}\begin{pmatrix}
+    \cost&\sint\\
+    -\sint&\cost\\
+\end{pmatrix} = \begin{pmatrix}
+    1&0\\0&1\\
+\end{pmatrix} = I_2
+\]
+
+So the term $a^2v_{t-1}^TM^TMv_{t-1} = a^2v_{t-1}^Tv_{t-1}$. Both this term and the term $v_{t}^Tv_{t-1}$ are constants with respect to $\theta$, so they fall away in the proportionality expression of the likelihood. The only term needed to be expanded is then $v_{t-1}Mv_{t}$. We can note also that \[v_{t} = \bmu_{t} - \bmu_{t-1} = \vect{x_t-x_{t-1}}{y_{t}-y_{t-1}} = \vect{\del{x_t}}{\del{y_t}}\]
+
+
+
+\begin{eqnarray*}
+    v_{t-1}\M v_{t}&=&
+    \begin{pmatrix}
+        \del{x_t}&\del{y_t}\\\end{pmatrix}
+    \begin{pmatrix}
+    \cos\theta&\sin\theta\\
+    -\sin\theta&\cos\theta\\
+\end{pmatrix}\vect{\del{x_{t-1}}}{\del{y_{t-1}}}\\
+    & = & \begin{pmatrix}
+        \del{x_{t}}\\\del{y_{t}}\\
+    \end{pmatrix}\vect{\del{x_{t-1}}\cost+\del{y_{t-1}}\sint}{\del{y_{t-1}}\cost - \del{x_{t-1}}\sint}\\
+    &=&\cost\left(\del{x_{t}}\del{x_{t-1}} + \del{y_t}\del{y_{t-1}}\right)+\\&&\sint \left(\del{x_{t}}\del{y_{t-1}} - \del{y_{t}\del{x_{t-1}}}\right)\\
+\end{eqnarray*}
+
+We can now recognise the posterior to have the form:
+
+\[\pi(\theta|V)\propto \exp\left( \frac{s_1\cost+s_2\sint}{2} \right) \qquad \text{for $-\pi<\theta<\pi$}\]
+
+where
+
+$s_1 = \sumn \left(\del{x_{t}}\del{x_{t-1}} + \del{y_t}\del{y_{t-1}}\right)$
+ and $s_2 = \sumn \left(\del{x_{t}}\del{y_{t-1}} - \del{y_{t}\del{x_{t-1}}}\right)$
+ 
+
+
+
+
+\section{Question 2}
+
+
+The constants s1 and s2 that we require are:
+
+
+```{r Constants}
+
+
+lag_sum_1 = function(v1,v2){
+  sumprod = 0
+  for(i in 1:(length(v1)-2)){
+    deltai = v1[i+2] - v1[i+1]
+    deltai_1 = v2[i+1] - v2[i]
+    sumprod = deltai*deltai_1 + sumprod
+  }
+  return(sumprod)
+}
+
+s1 = lag_sum_1(x,x) + lag_sum_1(y,y)
+s2 = lag_sum_1(x,y) - lag_sum_1(y,x)
+
+
+```
+
+We shall first plot the posterior distribution and its logorithm.
+
+
+```{r, echo=FALSE}
+# posterior distribution
+post_v = function(theta){
+  outp = exp((s1*cos(theta)+s2*sin(theta))/2)
+}
+
+# vectorizing the posterior distribution
+vecpost_v = Vectorize(post_v,"theta")
+
+#range of theta values between -pi and pi
+thetarange = seq(-pi,pi,0.01)
+par(mfrow= c(1,2))
+
+#likelihood function and log function
+plot(vecpost_v(thetarange)~thetarange,type="l", xlab=expression(theta),ylab="Posterior")
+
+# log posterior plot
+plot(log(vecpost_v(thetarange))~thetarange,type="l", xlab=expression(theta),ylab="Log posterior")
+
+
+
+```
+
+
+
+Now we shall use the acceptance rejection algorithm to obtain samples from the posterior distribution defined above. We will be obtaining the samples of our $\theta$'s according to the sampling distribution and our given likelihood and data.
+
+We have been given \[h(\theta) \propto e^{3\cost}\]
+
+Which we recognize to be the kernal of a von Mises distribution with $\mu = 0 \text{ and }  \kappa = 3$
+We first have our $\gamma(\theta)$ function that we want to obtain is :
+\begin{eqnarray*}
+    \gamma(\theta) &=& \frac{\pi(\theta)L(\theta,V)}{h(\theta)C}\\
+    &=& \exp{\left(\frac{s1\cos(\theta)+s2\sin(\theta)}{2}-3\cos(\theta)\right)/\mathcal{C}}
+\end{eqnarray*}
+
+We will first obtain the constant $\mathcal{C}$ defined by:
+
+
+\[\mathcal{C} = \underset{\theta}{\max}\frac{\pi(\theta) L(\theta,V)}{h(\theta)}\]
+
+
+
+
+
+```{r Maximization}
+
+# log of maximizing function for C
+log_function = function(theta){
+  t = (s1*cos(theta) + s2*sin(theta))/2-3*cos(theta)
+  return(t)
+} 
+
+# vectorization of the log function for plotting and maximizing
+vec_log_funct = Vectorize(log_function,vectorize.args="theta")
+plot(vec_log_funct(thetarange)~thetarange,type="l")
+
+
+# obtaining the maximum of our log function
+maxtheta = optimise(vec_log_funct,interval=c(-pi,pi),maximum=T)
+maxtheta = maxtheta$maximum
+
+
+# calculating C by exponentiating log function
+C = exp(log_function(maxtheta))
+
+
+# plot of theta that maximizes objective function
+plot(vec_log_funct(thetarange)~thetarange,type="l",col="red", ylab="log objective function",xlab = expression(theta))
+abline(v=maxtheta, col="green")
+
+```
+
+
+```{r}
+# gamma function for obtaining potential theta samples
+gamma_funct = function(theta){
+  y = exp(1/2 * (s1*cos(theta) + s2*sin(theta)) - 3 * cos(theta))/(C)
+  return(y)
+}
+
+
+
+# vectorized gamma function
+gvec = Vectorize(gamma_funct,"theta")
+
+# plot of gamma function 
+plot(gvec(seq(-pi,pi,0.01))~seq(-pi,pi,0.01),type="l",xlab=expression(theta),ylab="Density")
+abline(v = c(maxtheta),h=gamma_funct(maxtheta))
+
+
+```
+Now we create the \textbf{ar} function to get the sampled $\theta$'s.
+
+```{r}
+
+
+ar = function(n){
+  # stored vector of samples
+  thet_vec = rep(NA,n)
+  
+  for(i in 1:n){
+    while(is.na(thet_vec[i])){
+      
+      #generate random uniform and vonmises draws
+      u = runif(1)
+      thet = as.numeric(rvonmises(1,circular(0),3))
+      
+      # Displace pi's to [-pi,pi] 
+      if(thet>=pi){thet = thet-2*pi}
+      g = gamma_funct(thet)
+      if(u<=g){
+        # accepted thetas
+        thet_vec[i] = thet
+      }
+    }
+  }
+  return(thet_vec)
+}
+
+
+thetas = ar(5000)
+summary(thetas)
+```
+
+We now plot the resulting posterior against the analytical expression.
+```{r Summary}
+# plotting normalized posterior distribution
+
+
+norm_post = function(x){
+  # dividing by integrating constant for the analytical expression
+  post_v(x)/integrate(post_v,lower=-pi,upper=pi)$value
+}
+
+
+# vectorized nomalized posterior distribution
+norm_post_v = Vectorize(norm_post,"x")
+
+# plotting histogram of sampled thetas
+par(mfrow=c(1,2))
+hist(thetas,freq=F,breaks=50, xlab=expression(theta), main="Histogram of thetas")
+lines(density(thetas),col="red")
+
+zer2 = seq(0,1.5,0.01)
+plot(norm_post_v(zer2)~zer2,type="l", xlab=expression(theta),ylab="Posterior")
+lines(density(thetas),col="red")
+legend( x="topleft", col=c("black","red"),cex=0.5, lty=c(1,1),legend=c("posterior using analytic","posterior from ar algorithm"))
+
+
+
+
+```
+
+
+
+
+
+
+
